@@ -13,7 +13,7 @@ namespace LegacyRenewalApp
             { "ENTERPRISE", new SubscriptionPlan { Code = "ENTERPRISE", Name = "Enterprise", MonthlyPricePerSeat = 149m, SetupFee = 300m, IsEducationEligible = false } }
         };
 
-        public SubscriptionPlan GetByCode(string code)
+        public static SubscriptionPlan GetByCode(string code)
         {
             int randomWaitTime = new Random().Next(500);
             Thread.Sleep(randomWaitTime);

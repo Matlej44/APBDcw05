@@ -2,7 +2,7 @@ using System;
 
 namespace LegacyRenewalApp
 {
-    public class SubscriptionRenewalService
+    public class SubscriptionRenewalService()
     {
         public RenewalInvoice CreateRenewalInvoice(
             int customerId,
@@ -34,12 +34,9 @@ namespace LegacyRenewalApp
 
             string normalizedPlanCode = planCode.Trim().ToUpperInvariant();
             string normalizedPaymentMethod = paymentMethod.Trim().ToUpperInvariant();
-
-            var customerRepository = new CustomerRepository();
-            var planRepository = new SubscriptionPlanRepository();
-
-            var customer = customerRepository.GetById(customerId);
-            var plan = planRepository.GetByCode(normalizedPlanCode);
+            
+            var customer = CustomerRepository.GetById(customerId);
+            var plan = SubscriptionPlanRepository.GetByCode(normalizedPlanCode);
 
             if (!customer.IsActive)
             {
@@ -157,23 +154,7 @@ namespace LegacyRenewalApp
                 throw new ArgumentException("Unsupported payment method");
             }
 
-            decimal taxRate = 0.20m;
-            if (customer.Country == "Poland")
-            {
-                taxRate = 0.23m;
-            }
-            else if (customer.Country == "Germany")
-            {
-                taxRate = 0.19m;
-            }
-            else if (customer.Country == "Czech Republic")
-            {
-                taxRate = 0.21m;
-            }
-            else if (customer.Country == "Norway")
-            {
-                taxRate = 0.25m;
-            }
+            var taxRate = customer.GetTaxRate();
 
             decimal taxBase = subtotalAfterDiscount + supportFee + paymentFee;
             decimal taxAmount = taxBase * taxRate;
@@ -188,7 +169,7 @@ namespace LegacyRenewalApp
             var invoice = new RenewalInvoice
             {
                 InvoiceNumber = $"INV-{DateTime.UtcNow:yyyyMMdd}-{customerId}-{normalizedPlanCode}",
-                CustomerName = customer.FullName,
+                Customer = customer,
                 PlanCode = normalizedPlanCode,
                 PaymentMethod = normalizedPaymentMethod,
                 SeatCount = seatCount,
