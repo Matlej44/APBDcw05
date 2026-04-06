@@ -14,18 +14,5 @@ namespace LegacyRenewalApp
             { 4, new Customer { Id = 4, FullName = "School Lab", Email = "it-admin@school.example.com", Segment = "Education", Country = "Czech Republic", YearsWithCompany = 3, LoyaltyPoints = 90, IsActive = true } },
             { 5, new Customer { Id = 5, FullName = "Nordic Ventures", Email = "finance@nordic.example.com", Segment = "Silver", Country = "Norway", YearsWithCompany = 2, LoyaltyPoints = 30, IsActive = true } }
         };
-
-        public static Customer GetById(int customerId)
-        {
-            int randomWaitTime = new Random().Next(500);
-            Thread.Sleep(randomWaitTime);
-
-            if (Database.ContainsKey(customerId))
-            {
-                return Database[customerId];
-            }
-
-            throw new ArgumentException($"Customer with id {customerId} does not exist");
-        }
     }
 }

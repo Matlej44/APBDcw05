@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Linq;
 using System.Threading;
 
 namespace LegacyRenewalApp
@@ -12,19 +14,6 @@ namespace LegacyRenewalApp
             { "PRO", new SubscriptionPlan { Code = "PRO", Name = "Professional", MonthlyPricePerSeat = 89m, SetupFee = 180m, IsEducationEligible = true } },
             { "ENTERPRISE", new SubscriptionPlan { Code = "ENTERPRISE", Name = "Enterprise", MonthlyPricePerSeat = 149m, SetupFee = 300m, IsEducationEligible = false } }
         };
-
-        public static SubscriptionPlan GetByCode(string code)
-        {
-            int randomWaitTime = new Random().Next(500);
-            Thread.Sleep(randomWaitTime);
-
-            string normalizedCode = code.ToUpperInvariant();
-            if (Database.ContainsKey(normalizedCode))
-            {
-                return Database[normalizedCode];
-            }
-
-            throw new ArgumentException($"Plan with code {code} does not exist");
-        }
+        
     }
 }

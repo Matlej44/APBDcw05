@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace LegacyRenewalApp
 {
@@ -16,27 +17,25 @@ namespace LegacyRenewalApp
             {
                 throw new ArgumentException("Customer id must be positive");
             }
-
-            if (string.IsNullOrWhiteSpace(planCode))
-            {
-                throw new ArgumentException("Plan code is required");
-            }
-
+            
+            ArgumentException.ThrowIfNullOrWhiteSpace(planCode,"Plan code is required");
+            ArgumentException.ThrowIfNullOrWhiteSpace(paymentMethod,"Payment method is required");
+            
             if (seatCount <= 0)
             {
                 throw new ArgumentException("Seat count must be positive");
             }
-
-            if (string.IsNullOrWhiteSpace(paymentMethod))
-            {
-                throw new ArgumentException("Payment method is required");
-            }
-
-            string normalizedPlanCode = planCode.Trim().ToUpperInvariant();
-            string normalizedPaymentMethod = paymentMethod.Trim().ToUpperInvariant();
             
-            var customer = CustomerRepository.GetById(customerId);
-            var plan = SubscriptionPlanRepository.GetByCode(normalizedPlanCode);
+
+
+            var normalizedPlanCode = Normalize(planCode);
+            var normalizedPaymentMethod = Normalize(paymentMethod);
+            
+            var customer = CustomerRepository.Database.Where(k => k.Key == customerId).Select(x => x.Value).FirstOrDefault();
+            if (customer == null) throw new ArgumentException($"Customer with id {customerId} does not exist");            
+            
+            var plan = SubscriptionPlanRepository.Database.Where(k => k.Key.Contains(normalizedPlanCode)).Select(x => x.Value).FirstOrDefault();
+            if (plan == null) throw new ArgumentException($"Plan with code {normalizedPlanCode} does not exist");
 
             if (!customer.IsActive)
             {
@@ -112,19 +111,8 @@ namespace LegacyRenewalApp
             decimal supportFee = 0m;
             if (includePremiumSupport)
             {
-                if (normalizedPlanCode == "START")
-                {
-                    supportFee = 250m;
-                }
-                else if (normalizedPlanCode == "PRO")
-                {
-                    supportFee = 400m;
-                }
-                else if (normalizedPlanCode == "ENTERPRISE")
-                {
-                    supportFee = 700m;
-                }
-
+                var enumPlan = Enum.Parse(typeof(NormalizedPlanCodeEnum), normalizedPlanCode);
+                supportFee = ((int)enumPlan)*1m;
                 notes += "premium support included; ";
             }
 
@@ -197,5 +185,7 @@ namespace LegacyRenewalApp
 
             return invoice;
         }
+        public string Normalize(string value) => value.Trim().ToUpperInvariant();
     }
+    
 }
