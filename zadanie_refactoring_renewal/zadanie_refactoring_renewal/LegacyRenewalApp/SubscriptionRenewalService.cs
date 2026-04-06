@@ -17,82 +17,32 @@ namespace LegacyRenewalApp
             {
                 throw new ArgumentException("Customer id must be positive");
             }
-            
-            ArgumentException.ThrowIfNullOrWhiteSpace(planCode,"Plan code is required");
-            ArgumentException.ThrowIfNullOrWhiteSpace(paymentMethod,"Payment method is required");
-            
+
+            ArgumentException.ThrowIfNullOrWhiteSpace(planCode, "Plan code is required");
+            ArgumentException.ThrowIfNullOrWhiteSpace(paymentMethod, "Payment method is required");
+
             if (seatCount <= 0)
             {
                 throw new ArgumentException("Seat count must be positive");
             }
-            
 
 
             var normalizedPlanCode = Normalize(planCode);
             var normalizedPaymentMethod = Normalize(paymentMethod);
-            
-            var customer = CustomerRepository.Database.Where(k => k.Key == customerId).Select(x => x.Value).FirstOrDefault();
-            if (customer == null) throw new ArgumentException($"Customer with id {customerId} does not exist");            
-            
-            var plan = SubscriptionPlanRepository.Database.Where(k => k.Key.Contains(normalizedPlanCode)).Select(x => x.Value).FirstOrDefault();
+
+            var customer = CustomerRepository.Database.Where(k => k.Key == customerId).Select(x => x.Value)
+                .FirstOrDefault();
+            if (customer == null) throw new ArgumentException($"Customer with id {customerId} does not exist");
+            if (!customer.IsActive)
+                throw new InvalidOperationException("Inactive customers cannot renew subscriptions");
+
+            var plan = SubscriptionPlanRepository.Database.Where(k => k.Key.Contains(normalizedPlanCode))
+                .Select(x => x.Value).FirstOrDefault();
             if (plan == null) throw new ArgumentException($"Plan with code {normalizedPlanCode} does not exist");
 
-            if (!customer.IsActive)
-            {
-                throw new InvalidOperationException("Inactive customers cannot renew subscriptions");
-            }
+            var baseAmount = plan.GetBaseAmount(seatCount);
 
-            decimal baseAmount = (plan.MonthlyPricePerSeat * seatCount * 12m) + plan.SetupFee;
-            decimal discountAmount = 0m;
-            string notes = string.Empty;
-
-            if (customer.Segment == "Silver")
-            {
-                discountAmount += baseAmount * 0.05m;
-                notes += "silver discount; ";
-            }
-            else if (customer.Segment == "Gold")
-            {
-                discountAmount += baseAmount * 0.10m;
-                notes += "gold discount; ";
-            }
-            else if (customer.Segment == "Platinum")
-            {
-                discountAmount += baseAmount * 0.15m;
-                notes += "platinum discount; ";
-            }
-            else if (customer.Segment == "Education" && plan.IsEducationEligible)
-            {
-                discountAmount += baseAmount * 0.20m;
-                notes += "education discount; ";
-            }
-
-            if (customer.YearsWithCompany >= 5)
-            {
-                discountAmount += baseAmount * 0.07m;
-                notes += "long-term loyalty discount; ";
-            }
-            else if (customer.YearsWithCompany >= 2)
-            {
-                discountAmount += baseAmount * 0.03m;
-                notes += "basic loyalty discount; ";
-            }
-
-            if (seatCount >= 50)
-            {
-                discountAmount += baseAmount * 0.12m;
-                notes += "large team discount; ";
-            }
-            else if (seatCount >= 20)
-            {
-                discountAmount += baseAmount * 0.08m;
-                notes += "medium team discount; ";
-            }
-            else if (seatCount >= 10)
-            {
-                discountAmount += baseAmount * 0.04m;
-                notes += "small team discount; ";
-            }
+            var (discountAmount, notes) = DiscountService.GetDiscount(customer, plan, seatCount, baseAmount);
 
             if (useLoyaltyPoints && customer.LoyaltyPoints > 0)
             {
@@ -112,7 +62,7 @@ namespace LegacyRenewalApp
             if (includePremiumSupport)
             {
                 var enumPlan = Enum.Parse(typeof(NormalizedPlanCodeEnum), normalizedPlanCode);
-                supportFee = ((int)enumPlan)*1m;
+                supportFee = ((int)enumPlan) * 1m;
                 notes += "premium support included; ";
             }
 
@@ -185,7 +135,7 @@ namespace LegacyRenewalApp
 
             return invoice;
         }
-        public string Normalize(string value) => value.Trim().ToUpperInvariant();
+
+        private static string Normalize(string value) => value.Trim().ToUpperInvariant();
     }
-    
 }
