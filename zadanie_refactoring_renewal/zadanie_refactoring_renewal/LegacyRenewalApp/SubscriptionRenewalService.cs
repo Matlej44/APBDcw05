@@ -41,62 +41,55 @@ namespace LegacyRenewalApp
             if (plan == null) throw new ArgumentException($"Plan with code {normalizedPlanCode} does not exist");
 
             var baseAmount = plan.GetBaseAmount(seatCount);
+            var discountService = new DiscountService();
+            discountService.GetDiscount(customer, plan, seatCount, baseAmount);
+            if (useLoyaltyPoints && customer.LoyaltyPoints > 0) discountService.ApplyLoyaltyPoints();
 
-            var (discountAmount, notes) = DiscountService.GetDiscount(customer, plan, seatCount, baseAmount);
+            var discountAmount = discountService.DiscountAmount;
+            var notes = discountService.Notes;
 
-            if (useLoyaltyPoints && customer.LoyaltyPoints > 0)
-            {
-                int pointsToUse = customer.LoyaltyPoints > 200 ? 200 : customer.LoyaltyPoints;
-                discountAmount += pointsToUse;
-                notes += $"loyalty points used: {pointsToUse}; ";
-            }
 
-            decimal subtotalAfterDiscount = baseAmount - discountAmount;
+            var subtotalAfterDiscount = baseAmount - discountAmount;
             if (subtotalAfterDiscount < 300m)
             {
                 subtotalAfterDiscount = 300m;
                 notes += "minimum discounted subtotal applied; ";
             }
 
-            decimal supportFee = 0m;
+            var supportFee = 0m;
             if (includePremiumSupport)
             {
                 var enumPlan = Enum.Parse(typeof(NormalizedPlanCodeEnum), normalizedPlanCode);
                 supportFee = ((int)enumPlan) * 1m;
                 notes += "premium support included; ";
             }
-
-            decimal paymentFee = 0m;
-            if (normalizedPaymentMethod == "CARD")
+            var fee = 0m;
+            switch (normalizedPaymentMethod)
             {
-                paymentFee = (subtotalAfterDiscount + supportFee) * 0.02m;
-                notes += "card payment fee; ";
+                case "CARD":
+                    fee =  0.02m;
+                    notes += "card payment fee; ";
+                    break;
+                case "BANK_TRANSFER":
+                    fee =  0.01m;
+                    notes += "bank transfer fee; ";
+                    break;
+                case "PAYPAL":
+                    fee = 0.035m;
+                    notes += "paypal fee; ";
+                    break;
+                case "INVOICE":
+                    notes += "invoice payment; ";
+                    break;
+                default:
+                    throw new ArgumentException("Unsupported payment method");
             }
-            else if (normalizedPaymentMethod == "BANK_TRANSFER")
-            {
-                paymentFee = (subtotalAfterDiscount + supportFee) * 0.01m;
-                notes += "bank transfer fee; ";
-            }
-            else if (normalizedPaymentMethod == "PAYPAL")
-            {
-                paymentFee = (subtotalAfterDiscount + supportFee) * 0.035m;
-                notes += "paypal fee; ";
-            }
-            else if (normalizedPaymentMethod == "INVOICE")
-            {
-                paymentFee = 0m;
-                notes += "invoice payment; ";
-            }
-            else
-            {
-                throw new ArgumentException("Unsupported payment method");
-            }
-
+            var paymentFee = (subtotalAfterDiscount + supportFee) * fee;
             var taxRate = customer.GetTaxRate();
 
-            decimal taxBase = subtotalAfterDiscount + supportFee + paymentFee;
-            decimal taxAmount = taxBase * taxRate;
-            decimal finalAmount = taxBase + taxAmount;
+            var taxBase = subtotalAfterDiscount + supportFee + paymentFee;
+            var taxAmount = taxBase * taxRate;
+            var finalAmount = taxBase + taxAmount;
 
             if (finalAmount < 500m)
             {
@@ -123,15 +116,14 @@ namespace LegacyRenewalApp
 
             LegacyBillingGateway.SaveInvoice(invoice);
 
-            if (!string.IsNullOrWhiteSpace(customer.Email))
-            {
-                string subject = "Subscription renewal invoice";
-                string body =
-                    $"Hello {customer.FullName}, your renewal for plan {normalizedPlanCode} " +
-                    $"has been prepared. Final amount: {invoice.FinalAmount:F2}.";
+            if (string.IsNullOrWhiteSpace(customer.Email)) return invoice;
+            
+            const string subject = "Subscription renewal invoice";
+            var body =
+                $"Hello {customer.FullName}, your renewal for plan {normalizedPlanCode} " +
+                $"has been prepared. Final amount: {invoice.FinalAmount:F2}.";
 
-                LegacyBillingGateway.SendEmail(customer.Email, subject, body);
-            }
+            LegacyBillingGateway.SendEmail(customer.Email, subject, body);
 
             return invoice;
         }

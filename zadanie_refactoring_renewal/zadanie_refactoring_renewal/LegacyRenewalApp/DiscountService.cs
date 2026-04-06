@@ -1,48 +1,57 @@
 ﻿namespace LegacyRenewalApp;
 
-public static class DiscountService
+public class DiscountService
 {
-    private static decimal _discountAmount;
-    private static string _notes = string.Empty;
-    private static decimal _baseAmount;
-    private static int _seatCount = 0;
-    public static (decimal, string) GetDiscount(
+    public  decimal DiscountAmount{get; private set;}
+    public string Notes{get; private set;}
+    private decimal _baseAmount;
+    private  int _seatCount = 0;
+    private Customer _customer;
+    public void GetDiscount(
         Customer customer,
         SubscriptionPlan plan,
         int seatCount,
         decimal baseAmount)
     {
+        _customer = customer;
+        Notes = string.Empty;
         _baseAmount = baseAmount;
         _seatCount = seatCount;
         var (discount, tempNotes) = customer.GetDiscountBySegment(plan);
-        _notes += tempNotes;
-        _discountAmount += _baseAmount*discount;
+        Notes += tempNotes;
+        DiscountAmount += _baseAmount*discount;
 
         (discount, tempNotes) = customer.GetDiscountByYears();
-        _notes += tempNotes;
-        _discountAmount += _baseAmount*discount;
+        Notes += tempNotes;
+        DiscountAmount += _baseAmount*discount;
         
         GetDiscountBySeat();
-        
-        return (_discountAmount, _notes);
     }
 
-    private static void GetDiscountBySeat()
+    private void GetDiscountBySeat()
     {
         switch (_seatCount)
         {
             case >= 50:
-                _discountAmount += _baseAmount * 0.12m;
-                _notes += "large team discount; ";
+                DiscountAmount += _baseAmount * 0.12m;
+                Notes += "large team discount; ";
                 break;
             case >= 20:
-                _discountAmount += _baseAmount * 0.08m;
-                _notes += "medium team discount; ";
+                DiscountAmount += _baseAmount * 0.08m;
+                Notes += "medium team discount; ";
                 break;
             case >= 10:
-                _discountAmount += _baseAmount * 0.04m;
-                _notes += "small team discount; ";
+                DiscountAmount += _baseAmount * 0.04m;
+                Notes += "small team discount; ";
                 break;
         }
     }
+
+    public void ApplyLoyaltyPoints()
+    {
+        var pointsToUse = _customer.LoyaltyPoints > 200 ? 200 : _customer.LoyaltyPoints;
+        DiscountAmount += pointsToUse;
+        Notes += $"loyalty points used: {pointsToUse}; ";
+    }
+    
 }
