@@ -12,8 +12,14 @@ namespace LegacyRenewalApp
             int seatCount,
             string paymentMethod,
             bool includePremiumSupport,
-            bool useLoyaltyPoints)
+            bool useLoyaltyPoints,
+            IInvoiceService invoiceService = null,
+            INotificationService notificationService = null)
         {
+            if (invoiceService == null) invoiceService = new InvoiceService();
+            if (notificationService == null) notificationService = new EmailService();
+            
+            
             SubsciptionValidationService.Validate(customerId, planCode, seatCount, paymentMethod);
 
             var normalizedPlanCode = Normalize(planCode);
@@ -69,7 +75,7 @@ namespace LegacyRenewalApp
                 GeneratedAt = DateTime.UtcNow
             };
 
-            LegacyBillingGateway.SaveInvoice(invoice);
+            invoiceService.SaveInvoice(invoice);
 
             if (string.IsNullOrWhiteSpace(customer.Email)) return invoice;
 
@@ -78,7 +84,7 @@ namespace LegacyRenewalApp
                 $"Hello {customer.FullName}, your renewal for plan {normalizedPlanCode} " +
                 $"has been prepared. Final amount: {invoice.FinalAmount:F2}.";
 
-            LegacyBillingGateway.SendEmail(customer.Email, subject, body);
+            notificationService.SendNotification(customer.Email, body, subject);
 
             return invoice;
         }
